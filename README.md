@@ -2,11 +2,11 @@
 EzPoison is a World of Warcraft addon that provides a convenient GUI to manage and apply poisons, sharpening stones, and wizard/mana oils to your weapons. This fork includes additional tweaks and quality-of-life improvements.
 
 ## Features
-Simple GUI: Quickly apply poisons, stones, or oils to your main-hand and off-hand weapons.
-Profiles: Save up to 7 different configurations (profiles) for your poisons/stones/oils. Switch between them with a single click or slash command.
-Inventory Tracking: Displays how many of each poison/stone/oil remain in your bags.
-Moveable/Scalable Window: Drag to reposition and adjust the scale of the GUI to fit your UI needs.
-Slash Commands: Control the addon through various /ezpoison or /EzPoison commands.
+- Simple GUI: Quickly apply poisons, stones, or oils to your main-hand and off-hand weapons.
+- Profiles: Save up to 7 different configurations (profiles) for your poisons/stones/oils. Switch between them with a single click or slash command.
+- Inventory Tracking: Displays how many of each poison/stone/oil remain in your bags.
+- Moveable/Scalable Window: Drag to reposition and adjust the scale of the GUI to fit your UI needs.
+- Slash Commands: Control the addon through various /ezpoison or /EzPoison commands.
 
 ## Installation
 Download or clone this repository.
@@ -20,7 +20,7 @@ Once in-game, use /ezpoison to toggle the GUI or configure as needed.
 Toggle the EzPoison frame:
 Type /ezpoison (or /EzPoison) with no additional arguments to show or hide the configuration frame.
 
-Apply poisons:
+### Apply poisons:
 
 Left-click on the Main-Hand or Off-Hand icon in the EzPoison window to automatically apply the currently selected poison/stone/oil.
 Right-click on the icon to open a dropdown where you can pick the type of consumable you want.
