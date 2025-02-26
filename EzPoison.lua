@@ -579,81 +579,68 @@ function EZP:ConfigFubar()
 end
 
 function EZP:UpdateTexture()
-	EZP.Work.slotInfo[1],EZP.Work.slotInfo[2],EZP.Work.slotInfo[3],EZP.Work.slotInfo[4],EZP.Work.slotInfo[5],EZP.Work.slotInfo[6] = EZP.GetWeaponEnchantInfo()
-	
-	if EZP.Work.slotInfo[1] then
-		EZP.Work.ID = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.MainHand.BorderDropdown)-1
-		for i=1,20 do
-			EZP.Parser:SetOwner(UIParent, "ANCHOR_NONE")
-			EZP.Work.ToolTipBuff = EZP.Parser:SetInventoryItem("player", 16)
-			if not EZP.Work.ToolTipBuff or not getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText() or EZP.Work.ID > 10 or EZP.Work.ID < 1 then EZP.Parser:Hide(); EZP.ConfigFrame.MainHand:SetAlpha(0.2) break end
-			if string.find(gsub(string.lower(getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText()),"-",""),gsub(string.lower(EZP.Work.Poison[EZP.Work.ID]),"-","")) then
-				EZP.ConfigFrame.MainHand:SetAlpha(1)
-				break
-			end
-		end
-	else
-		EZP.ConfigFrame.MainHand:SetAlpha(0.2)
-	end
-	
-	if EZP.Work.slotInfo[4] then
-		EZP.Work.ID = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.OffHand.BorderDropdown)-1
-		for i=1,20 do
-			EZP.Parser:SetOwner(UIParent, "ANCHOR_NONE")
-			EZP.Work.ToolTipBuff = EZP.Parser:SetInventoryItem("player", 17)
-			if not EZP.Work.ToolTipBuff or not getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText() or EZP.Work.ID > 10 or EZP.Work.ID < 1 then EZP.Parser:Hide(); EZP.ConfigFrame.OffHand:SetAlpha(0.2) break end
-			if string.find(gsub(string.lower(getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText()),"-",""),gsub(string.lower(EZP.Work.Poison[EZP.Work.ID]),"-","")) then
-				EZP.ConfigFrame.OffHand:SetAlpha(1)
-				break
-			end
-		end
-	else
-		EZP.ConfigFrame.OffHand:SetAlpha(0.2)
-	end
-	
-	EZP:UpdatePoisonCount()
+    -- No longer setting alpha here; defer to UpdatePoisonCount
+    EZP:UpdatePoisonCount()
 end
 
 function EZP:UpdatePoisonCount()
-	-- MainHand
-	local countPoison = 0
-	local count = 0
-	local id = EZP:GetInventoryID("MH")
-	if id then
-		local poisonName = gsub(string.lower(EZP.Work.Poison[id[5]]..id[3]),"-","")
-		for i=0,4 do 
-			for j=1,18 do
-				if GetContainerItemInfo(i, j) then
-					--if string.find(poisonName,gsub(string.lower(gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1")),"-","")) then
-					if poisonName == gsub(string.lower(gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1")),"-","") then
-						_, count = GetContainerItemInfo(i, j)
-						countPoison = countPoison + count
-					end
-				end
-			end
-		end
-	end
-	EZP.ConfigFrame.MainHand.Font:SetText(countPoison)
-	
-	-- OffHand
-	countPoison = 0
-	count = 0
-	id = EZP:GetInventoryID("OH")
-	if id then
-		poisonName = gsub(string.lower(EZP.Work.Poison[id[5]]..id[3]),"-","")
-		for i=0,4 do 
-			for j=1,18 do
-				if GetContainerItemInfo(i, j) then
-					--if string.find(poisonName,gsub(string.lower(gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1")),"-","")) then
-					if poisonName == gsub(string.lower(gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1")),"-","") then
-						_, count = GetContainerItemInfo(i, j)
-						countPoison = countPoison + count
-					end
-				end
-			end
-		end
-	end
-	EZP.ConfigFrame.OffHand.Font:SetText(countPoison)
+    -- Main Hand Count and Alpha
+    local countMH = 0
+    local id = EZP:GetInventoryID("MH")
+    if id then
+        local targetItemID = id[4] -- Item ID from GetInventoryID
+        for bag = 0, 4 do
+            local numSlots = GetContainerNumSlots(bag)
+            for slot = 1, numSlots do
+                local link = GetContainerItemLink(bag, slot)
+                if link then
+                    local _, _, itemIDStr = string.find(link, "item:(%d+)")
+                    if itemIDStr then
+                        local itemID = tonumber(itemIDStr)
+                        if itemID and itemID == targetItemID then
+                            local _, count = GetContainerItemInfo(bag, slot)
+                            countMH = countMH + count
+                        end
+                    end
+                end
+            end
+        end
+    end
+    EZP.ConfigFrame.MainHand.Font:SetText(countMH)
+    if countMH > 0 then
+        EZP.ConfigFrame.MainHand:SetAlpha(1) -- Fully opaque
+    else
+        EZP.ConfigFrame.MainHand:SetAlpha(0.2) -- Faded
+    end
+
+    -- Off Hand Count and Alpha
+    local countOH = 0
+    id = EZP:GetInventoryID("OH")
+    if id then
+        local targetItemID = id[4] -- Item ID from GetInventoryID
+        for bag = 0, 4 do
+            local numSlots = GetContainerNumSlots(bag)
+            for slot = 1, numSlots do
+                local link = GetContainerItemLink(bag, slot)
+                if link then
+                    local _, _, itemIDStr = string.find(link, "item:(%d+)")
+                    if itemIDStr then
+                        local itemID = tonumber(itemIDStr)
+                        if itemID and itemID == targetItemID then
+                            local _, count = GetContainerItemInfo(bag, slot)
+                            countOH = countOH + count
+                        end
+                    end
+                end
+            end
+        end
+    end
+    EZP.ConfigFrame.OffHand.Font:SetText(countOH)
+    if countOH > 0 then
+        EZP.ConfigFrame.OffHand:SetAlpha(1) -- Fully opaque
+    else
+        EZP.ConfigFrame.OffHand:SetAlpha(0.2) -- Faded
+    end
 end
 
 -- Helper function to convert numbers to Roman numerals for ranked poisons
