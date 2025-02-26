@@ -35,6 +35,13 @@ EZP.Work = 	{
 		[4] = "Crippling Poison II",
 		[5] = "Mind-numbing Poison",
 		[6] = "Wound Poison",
+		[7] = "Corrosive Poison",
+		[8] = "Agitating Poison",
+		[9] = "Elemental Sharpening Stone",
+		[10] = "Consecrated Sharpening Stone",
+		[11] = "Blessed Wizard Oil",
+		[12] = "Brilliant Wizard Oil",
+		[13] = "Brilliant Mana Oil",
 	},
 	PoisonID = {
 		[1] = {6947,6949,6950,8926,8927,8928},
@@ -43,6 +50,13 @@ EZP.Work = 	{
 		[4] = 3776,
 		[5] = {5237,6951,9186},
 		[6] = {10918,10920,10921,10922},
+		[7] = {47408,47409},
+		[8] = {65032},
+		[9] = {18262},
+		[10] = {23122},
+		[11] = {28898},
+		[12] = {20749},
+		[13] = {20748},
 	},
 	PoisonIcon = {
 		[1] = "Interface\\Icons\\Ability_Poisons",
@@ -51,6 +65,13 @@ EZP.Work = 	{
 		[4] = "Interface\\Icons\\INV_Potion_19",
 		[5] = "Interface\\Icons\\Spell_Nature_NullifyDisease",
 		[6] = "Interface\\Icons\\Ability_PoisonSting",
+		[7] = "Interface\\Icons\\Spell_Nature_CorrosiveBreath",
+		[8] = "Interface\\Icons\\Spell_Nature_NullifyPoison",
+		[9] = "Interface\\Icons\\INV_Stone_02",
+		[10] = "Interface\\Icons\\INV_Stone_SharpeningStone_02",
+		[11] = "Interface\\Icons\\INV_Potion_26",
+		[12] = "Interface\\Icons\\INV_Potion_105",
+		[13] = "Interface\\Icons\\INV_Potion_100",
 	}
 }
 
@@ -158,7 +179,7 @@ function EZP.ConfigFrame:ConfigureUI()
 		info.isTitle = 1
 		UIDropDownMenu_AddButton(info)
 		info = {}
-		for i=1,6 do
+		for i=1,13 do
 			info.text = EZP.Work.Poison[i]
 			info.icon = EZP.Work.PoisonIcon[i]
 			info.checked = false
@@ -232,7 +253,7 @@ function EZP.ConfigFrame:ConfigureUI()
 		info.isTitle = 1
 		UIDropDownMenu_AddButton(info)
 		info = {}
-		for i=1,6 do
+		for i=1,10 do
 			info.text = EZP.Work.Poison[i]
 			info.checked = false
 			info.icon = EZP.Work.PoisonIcon[i]
@@ -565,7 +586,7 @@ function EZP:UpdateTexture()
 		for i=1,20 do
 			EZP.Parser:SetOwner(UIParent, "ANCHOR_NONE")
 			EZP.Work.ToolTipBuff = EZP.Parser:SetInventoryItem("player", 16)
-			if not EZP.Work.ToolTipBuff or not getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText() or EZP.Work.ID > 6 or EZP.Work.ID < 1 then EZP.Parser:Hide(); EZP.ConfigFrame.MainHand:SetAlpha(0.2) break end
+			if not EZP.Work.ToolTipBuff or not getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText() or EZP.Work.ID > 10 or EZP.Work.ID < 1 then EZP.Parser:Hide(); EZP.ConfigFrame.MainHand:SetAlpha(0.2) break end
 			if string.find(gsub(string.lower(getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText()),"-",""),gsub(string.lower(EZP.Work.Poison[EZP.Work.ID]),"-","")) then
 				EZP.ConfigFrame.MainHand:SetAlpha(1)
 				break
@@ -580,7 +601,7 @@ function EZP:UpdateTexture()
 		for i=1,20 do
 			EZP.Parser:SetOwner(UIParent, "ANCHOR_NONE")
 			EZP.Work.ToolTipBuff = EZP.Parser:SetInventoryItem("player", 17)
-			if not EZP.Work.ToolTipBuff or not getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText() or EZP.Work.ID > 6 or EZP.Work.ID < 1 then EZP.Parser:Hide(); EZP.ConfigFrame.OffHand:SetAlpha(0.2) break end
+			if not EZP.Work.ToolTipBuff or not getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText() or EZP.Work.ID > 10 or EZP.Work.ID < 1 then EZP.Parser:Hide(); EZP.ConfigFrame.OffHand:SetAlpha(0.2) break end
 			if string.find(gsub(string.lower(getglobal(EZP.Parser:GetName().."TextLeft"..i):GetText()),"-",""),gsub(string.lower(EZP.Work.Poison[EZP.Work.ID]),"-","")) then
 				EZP.ConfigFrame.OffHand:SetAlpha(1)
 				break
@@ -635,90 +656,64 @@ function EZP:UpdatePoisonCount()
 	EZP.ConfigFrame.OffHand.Font:SetText(countPoison)
 end
 
+-- Helper function to convert numbers to Roman numerals for ranked poisons
+function EZP:RomanNumeral(num)
+    local roman = {"I", "II", "III", "IV", "V", "VI"}
+    return roman[num] or ""
+end
+
+-- Updated function to search the entire bag for the selected item
 function EZP:GetInventoryID(hand)
-	if hand then
-		local H = 0
-		if hand == "MH" then H = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.MainHand.BorderDropdown)
-		elseif hand  == "OH" then H = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.OffHand.BorderDropdown) end
-		
-		-- if crippling poison 1
-		if H == 4 then
-			for i=0,4 do -- i = bagsnr.
-				for j=1,18 do -- j = slotnr.
-					if GetContainerItemInfo(i, j) and H <= 7 and H >= 2 then
-						if gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1") == EZP.Work.Poison[3] then return {i,j,"",EZP.Work.PoisonID[3],H-1} end
-					end
-				end
-			end
-		end
-		
-		-- if cripling poison 2
-		if H == 5 then
-			for i=0,4 do -- i = bagsnr.
-				for j=1,18 do -- j = slotnr.
-					if GetContainerItemInfo(i, j) and H <= 7 and H >= 2 then
-						if gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1") == EZP.Work.Poison[3].." II" then return {i,j,"",EZP.Work.PoisonID[4],H-1} end
-					end
-				end
-			end
-		end
-		
-		-- rank 6
-		for i=0,4 do -- i = bagsnr.
-			for j=1,18 do -- j = slotnr.
-				if GetContainerItemInfo(i, j) and H <= 7 and H >= 2 then
-					if gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1") == EZP.Work.Poison[H-1].." VI" then return {i,j," VI",EZP.Work.PoisonID[H-1][6],H-1} end
-				end
-			end
-		end
-		
-		-- rank 5
-		for i=0,4 do -- i = bagsnr.
-			for j=1,18 do -- j = slotnr.
-				if GetContainerItemInfo(i, j) and H <= 7 and H >= 2 then
-					if gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1") == EZP.Work.Poison[H-1].." V" then return {i,j," V",EZP.Work.PoisonID[H-1][5],H-1} end
-				end
-			end
-		end
-		
-		-- rank 4
-		for i=0,4 do -- i = bagsnr.
-			for j=1,18 do -- j = slotnr.
-				if GetContainerItemInfo(i, j) and H <= 7 and H >= 2 then
-					if gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1") == EZP.Work.Poison[H-1].." IV" then return {i,j," IV",EZP.Work.PoisonID[H-1][4],H-1} end
-				end
-			end
-		end
-		
-		-- rank 3
-		for i=0,4 do -- i = bagsnr.
-			for j=1,18 do -- j = slotnr.
-				if GetContainerItemInfo(i, j) and H <= 7 and H >= 2 then
-					if gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1") == EZP.Work.Poison[H-1].." III" then return {i,j," III",EZP.Work.PoisonID[H-1][3],H-1} end
-				end
-			end
-		end
-		
-		-- rank 2
-		for i=0,4 do -- i = bagsnr.
-			for j=1,18 do -- j = slotnr.
-				if GetContainerItemInfo(i, j) and H <= 7 and H >= 2 then
-					if gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1") == EZP.Work.Poison[H-1].." II" then return {i,j," II",EZP.Work.PoisonID[H-1][2],H-1} end
-				end
-			end
-		end
-		
-		-- rank 1
-		for i=0,4 do -- i = bagsnr.
-			for j=1,18 do -- j = slotnr.
-				if GetContainerItemInfo(i, j) and H <= 7 and H >= 2 then
-					if gsub(GetContainerItemLink(i,j),"^.*%[(.*)%].*$","%1") == EZP.Work.Poison[H-1] then return {i,j,"",EZP.Work.PoisonID[H-1][1],H-1} end
-				end
-			end
-		end
-		
-		return nil
-	end
+    if not hand then return nil end
+
+    -- Get the dropdown selection ID (1 = None, 2 = Instant Poison, ..., 14 = Brilliant Mana Oil)
+    local H = 0
+    if hand == "MH" then
+        H = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.MainHand.BorderDropdown)
+    elseif hand == "OH" then
+        H = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.OffHand.BorderDropdown)
+    end
+
+    -- Only proceed if a valid poison/oil/stone is selected (H between 2 and 13)
+    if H < 2 or H > 13 then return nil end
+
+    local poisonIndex = H - 1 -- Adjust for 0-based index in EZP.Work.Poison
+    local poisonName = EZP.Work.Poison[poisonIndex] -- Base name (e.g., "Instant Poison")
+    local poisonIDs = EZP.Work.PoisonID[poisonIndex] -- Item ID(s) for this poison
+
+    if type(poisonIDs) == "table" then
+        -- Ranked poison: search from highest rank to lowest
+        for rank = table.getn(poisonIDs), 1, -1 do
+            local rankStr = (rank == 1) and "" or " "..EZP:RomanNumeral(rank) -- e.g., " VI" or ""
+            local fullName = poisonName .. rankStr -- e.g., "Instant Poison VI"
+            for bag = 0, 4 do
+                local numSlots = GetContainerNumSlots(bag)
+                for slot = 1, numSlots do
+                    if GetContainerItemInfo(bag, slot) then
+                        local itemName = gsub(GetContainerItemLink(bag, slot), "^.*%[(.*)%].*$", "%1")
+                        if itemName == fullName then
+                            return {bag, slot, rankStr, poisonIDs[rank], poisonIndex}
+                        end
+                    end
+                end
+            end
+        end
+    else
+        -- Non-ranked poison/oil/stone: search for exact name
+        for bag = 0, 4 do
+            local numSlots = GetContainerNumSlots(bag)
+            for slot = 1, numSlots do
+                if GetContainerItemInfo(bag, slot) then
+                    local itemName = gsub(GetContainerItemLink(bag, slot), "^.*%[(.*)%].*$", "%1")
+                    if itemName == poisonName then
+                        return {bag, slot, "", poisonIDs, poisonIndex}
+                    end
+                end
+            end
+        end
+    end
+
+    return nil -- Item not found
 end
 
 function EZP:ApplyPoisen(hand)
@@ -758,13 +753,13 @@ function EZP:SaveProfiles()
 	local MH = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.MainHand.BorderDropdown)
 	local OH = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.OffHand.BorderDropdown)
 	
-	if MH and MH <= 7 and MH >= 2 then
+	if MH and MH <= 11 and MH >= 2 then
 		EZPcfg.Profile[EZPcfg.CurrentProfile].MainHand = MH-1
 	else
 		EZPcfg.Profile[EZPcfg.CurrentProfile].MainHand = 0
 	end
 	
-	if OH and OH <= 7 and OH >= 2 then
+	if OH and OH <= 11 and OH >= 2 then
 		EZPcfg.Profile[EZPcfg.CurrentProfile].OffHand = OH-1
 	else
 		EZPcfg.Profile[EZPcfg.CurrentProfile].OffHand = 0
@@ -788,13 +783,13 @@ function EZP:UpdateSelection()
 	local MH = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.MainHand.BorderDropdown)
 	local OH = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.OffHand.BorderDropdown)
 	
-	if MH and MH <= 7 and MH >= 2 then
+	if MH and MH <= 11 and MH >= 2 then
 		EZP.ConfigFrame.MainHand:SetNormalTexture(EZP.Work.PoisonIcon[MH-1])
 	else
 		EZP.ConfigFrame.MainHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")	
 	end
 	
-	if OH and OH <= 7 and OH >= 2 then
+	if OH and OH <= 11 and OH >= 2 then
 		EZP.ConfigFrame.OffHand:SetNormalTexture(EZP.Work.PoisonIcon[OH-1])	
 	else
 		EZP.ConfigFrame.OffHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
