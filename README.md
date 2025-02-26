@@ -73,5 +73,5 @@ The addon checks your bags for the selected poison/stone/oil. If it cannot find 
 Item counts update whenever your bags change or you apply a poison. If numbers seem off, try opening/closing your bags or reapplying poison to refresh.
 
 ## Contributing
-This is a fork of EzPoison edited by Quad Crown. Feel free to open issues or pull requests if you have improvements or suggestions. For major changes, please open an issue first to discuss what you would like to change.
+This is a fork of EzPoison by Voidmenull (https://github.com/Voidmenull/EzPoison) edited by Quad Crown. Feel free to open issues or pull requests if you have improvements or suggestions. For major changes, please open an issue first to discuss what you would like to change.
 
