@@ -42,6 +42,7 @@ EZP.Work = 	{
 		[11] = "Blessed Wizard Oil",
 		[12] = "Brilliant Wizard Oil",
 		[13] = "Brilliant Mana Oil",
+		[14] = "Frost Oil",
 	},
 	PoisonID = {
 		[1] = {6947,6949,6950,8926,8927,8928},
@@ -57,6 +58,7 @@ EZP.Work = 	{
 		[11] = {28898},
 		[12] = {20749},
 		[13] = {20748},
+		[14] = {3829},
 	},
 	PoisonIcon = {
 		[1] = "Interface\\Icons\\Ability_Poisons",
@@ -72,6 +74,7 @@ EZP.Work = 	{
 		[11] = "Interface\\Icons\\INV_Potion_26",
 		[12] = "Interface\\Icons\\INV_Potion_105",
 		[13] = "Interface\\Icons\\INV_Potion_100",
+		[14] = "Interface\\Icons\\INV_Potion_20",
 	}
 }
 
@@ -172,56 +175,115 @@ function EZP.ConfigFrame:ConfigureUI()
 		self.ProfileButton[i]:Hide()
 	end
 	
-	-- Mainhand
+	----------------------------------------------------------------------------
+	-- Updated EzPoison GUI / Dropdown Setup
+	-- Paste this into your "EZP.ConfigFrame:ConfigureUI()" where appropriate
+	----------------------------------------------------------------------------
+
+	-- First, replace your current MainHand/OffHand dropdown-building functions:
 	local function MainHandDropDownFun()
 		local info = {}
+
+		-- Title row
 		info.text = "MainHand"
 		info.isTitle = 1
 		UIDropDownMenu_AddButton(info)
+
+		-- Actual list items
 		info = {}
-		for i=1,13 do
-			info.text = EZP.Work.Poison[i]
-			info.icon = EZP.Work.PoisonIcon[i]
+		for _, i in ipairs(EZP:GetValidPoisonIndices()) do
+			info.text   = EZP.Work.Poison[i]         -- e.g. "Elemental Sharpening Stone"
+			info.icon   = EZP.Work.PoisonIcon[i]     -- icon path
+			info.value  = i                          -- store the REAL index from your table
 			info.checked = false
 			info.textR = 0.4; info.textG = 0.8; info.textB = 0.4
 			info.isTitle = nil
 			info.func = function()
-				UIDropDownMenu_SetSelectedID(getglobal("EZPMainHandDD"), this:GetID(), 0)
+				-- Instead of SetSelectedID, use SetSelectedValue
+				UIDropDownMenu_SetSelectedValue(getglobal("EZPMainHandDD"), this.value)
 				EZP:UpdateSelection()
 				EZP:SaveProfiles()
 			end
 			UIDropDownMenu_AddButton(info)
 		end
+
+		-- "None" entry, treat as 0
 		info = {}
-		info.text = "None"
-		info.checked = false
-		info.textR = 1; info.textG = 1; info.textB = 1
-		info.isTitle = nil
+		info.text     = "None"
+		info.checked  = false
+		info.value    = 0  -- we'll interpret 0 as "no selection"
+		info.textR    = 1; info.textG = 1; info.textB = 1
+		info.isTitle  = nil
 		info.func = function()
-			UIDropDownMenu_SetSelectedID(getglobal("EZPMainHandDD"), this:GetID(), 0)
+			UIDropDownMenu_SetSelectedValue(getglobal("EZPMainHandDD"), 0)
 			EZP:UpdateSelection()
 			EZP:SaveProfiles()
 		end
 		UIDropDownMenu_AddButton(info)
 	end
-		
+
+	local function OffHandDropDownFun()
+		local info = {}
+
+		-- Title row
+		info.text = "OffHand"
+		info.isTitle = 1
+		UIDropDownMenu_AddButton(info)
+
+		-- Actual list items
+		info = {}
+		for _, i in ipairs(EZP:GetValidPoisonIndices()) do
+			info.text   = EZP.Work.Poison[i]
+			info.icon   = EZP.Work.PoisonIcon[i]
+			info.value  = i
+			info.checked = false
+			info.textR = 0.4; info.textG = 0.8; info.textB = 0.4
+			info.isTitle = nil
+			info.func = function()
+				UIDropDownMenu_SetSelectedValue(getglobal("EZPOffHandDD"), this.value)
+				EZP:UpdateSelection()
+				EZP:SaveProfiles()
+			end
+			UIDropDownMenu_AddButton(info)
+		end
+
+		-- "None" entry
+		info = {}
+		info.text     = "None"
+		info.checked  = false
+		info.value    = 0
+		info.textR    = 1; info.textG = 1; info.textB = 1
+		info.isTitle  = nil
+		info.func = function()
+			UIDropDownMenu_SetSelectedValue(getglobal("EZPOffHandDD"), 0)
+			EZP:UpdateSelection()
+			EZP:SaveProfiles()
+		end
+		UIDropDownMenu_AddButton(info)
+	end
+
+	-- Now, define your main-hand/off-hand frames as before, 
+	-- but ensure we call _SetSelectedValue initialization:
 	self.MainHand = CreateFrame("Button", "EZPMHButton", self)
 	self.MainHand.BorderDropdown = CreateFrame("Frame","EZPMainHandDD", self, "UIDropDownMenuTemplate")
-	UIDropDownMenu_Initialize(getglobal("EZPMainHandDD"), MainHandDropDownFun,"MENU")
-	
+	UIDropDownMenu_Initialize(getglobal("EZPMainHandDD"), MainHandDropDownFun, "MENU")
+
 	self.MainHand:SetWidth(32)
 	self.MainHand:SetHeight(32)
 	self.MainHand:SetPoint("LEFT",7,0)
 	self.MainHand:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	self.MainHand:SetScript("OnClick", function () 
-		if arg1 == "LeftButton" then EZP:ApplyPoisen("MH") end
-		if arg1 == "RightButton" then ToggleDropDownMenu(1, nil, self.MainHand.BorderDropdown, self.OffHand, 0, 0) end
+	self.MainHand:SetScript("OnClick", function()
+		if arg1 == "LeftButton" then
+			EZP:ApplyPoisen("MH")
+		elseif arg1 == "RightButton" then
+			ToggleDropDownMenu(1, nil, self.MainHand.BorderDropdown, self.OffHand, 0, 0)
+		end
 	end)
-	self.MainHand:SetScript("OnEnter", function ()
+	self.MainHand:SetScript("OnEnter", function()
 		self.MainHand.Background:SetVertexColor(1, 1, 1, 1)
 		local id = EZP:GetInventoryID("MH")
 		if id then
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")	
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 			GameTooltip:SetHyperlink("item:"..id[4])
 			GameTooltip:Show()
 		end
@@ -231,7 +293,8 @@ function EZP.ConfigFrame:ConfigureUI()
 		GameTooltip:Hide()
 	end)
 	self.MainHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
-	
+
+	-- Glow
 	self.MainHand.Background = self:CreateTexture(self,"BACKGROUND")
 	self.MainHand.Background:SetPoint("CENTER",self.MainHand,"CENTER",0,0)
 	self.MainHand.Background:SetWidth(36)
@@ -239,60 +302,32 @@ function EZP.ConfigFrame:ConfigureUI()
 	self.MainHand.Background:SetTexture("Interface\\Buttons\\CheckButtonHilight")
 	self.MainHand.Background:SetVertexColor(1, 1, 1, 0)
 	self.MainHand.Background:SetBlendMode("ADD")
-	
-	self.MainHand.Font = self.MainHand:CreateFontString(nil, "OVERLAY")
-    self.MainHand.Font:SetPoint("BOTTOMRIGHT", -3, 3)
-    self.MainHand.Font:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
-	self.MainHand.Font:SetTextColor(0.8,0.8,0.8)
-    --self.MainHand.Font:SetText("999")
 
+	-- Count text
+	self.MainHand.Font = self.MainHand:CreateFontString(nil, "OVERLAY")
+	self.MainHand.Font:SetPoint("BOTTOMRIGHT", -3, 3)
+	self.MainHand.Font:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
+	self.MainHand.Font:SetTextColor(0.8,0.8,0.8)
+
+	------------------------------------------------
 	-- OffHand
-	local function OffHandDropDownFun()
-		local info = {}
-		info.text = "OffHand"
-		info.isTitle = 1
-		UIDropDownMenu_AddButton(info)
-		info = {}
-		for i=1,10 do
-			info.text = EZP.Work.Poison[i]
-			info.checked = false
-			info.icon = EZP.Work.PoisonIcon[i]
-			info.textR = 0.4; info.textG = 0.8; info.textB = 0.4
-			info.isTitle = nil
-			info.func = function()
-				UIDropDownMenu_SetSelectedID(getglobal("EZPOffHandDD"), this:GetID(), 0)
-				EZP:UpdateSelection()
-				EZP:SaveProfiles()
-			end
-			UIDropDownMenu_AddButton(info)
-		end
-		info = {}
-		info.text = "None"
-		info.checked = false
-		info.textR = 1; info.textG = 1; info.textB = 1
-		info.isTitle = nil
-		info.func = function()
-			UIDropDownMenu_SetSelectedID(getglobal("EZPOffHandDD"), this:GetID(), 0)
-			EZP:UpdateSelection()
-			EZP:SaveProfiles()
-		end
-		UIDropDownMenu_AddButton(info)
-	end
-	
+	------------------------------------------------
 	self.OffHand = CreateFrame("Button", nil, self)
 	self.OffHand.BorderDropdown = CreateFrame("Frame","EZPOffHandDD", self, "UIDropDownMenuTemplate")
-	UIDropDownMenu_Initialize(getglobal("EZPOffHandDD"), OffHandDropDownFun,"MENU")
-	
+	UIDropDownMenu_Initialize(getglobal("EZPOffHandDD"), OffHandDropDownFun, "MENU")
+
 	self.OffHand:SetWidth(32)
 	self.OffHand:SetHeight(32)
 	self.OffHand:SetPoint("RIGHT",-7,0)
 	self.OffHand:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	self.OffHand:SetScript("OnClick", function () 
-		if arg1 == "LeftButton" then EZP:ApplyPoisen("OH") end
-		if arg1 == "RightButton" then ToggleDropDownMenu(1, nil, self.OffHand.BorderDropdown, self.OffHand, 0, 0) end
-		
+	self.OffHand:SetScript("OnClick", function ()
+		if arg1 == "LeftButton" then
+			EZP:ApplyPoisen("OH")
+		elseif arg1 == "RightButton" then
+			ToggleDropDownMenu(1, nil, self.OffHand.BorderDropdown, self.OffHand, 0, 0)
+		end
 	end)
-	self.OffHand:SetScript("OnEnter", function ()
+	self.OffHand:SetScript("OnEnter", function()
 		self.OffHand.Background:SetVertexColor(1, 1, 1, 1)
 		local id = EZP:GetInventoryID("OH")
 		if id then
@@ -301,29 +336,32 @@ function EZP.ConfigFrame:ConfigureUI()
 			GameTooltip:Show()
 		end
 	end)
-	self.OffHand:SetScript("OnLeave", function ()
+	self.OffHand:SetScript("OnLeave", function()
 		self.OffHand.Background:SetVertexColor(1, 1, 1, 0)
 		GameTooltip:Hide()
 	end)
 	self.OffHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
-	
+
+	-- Glow
 	self.OffHand.Background = self:CreateTexture(self,"BACKGROUND")
-	self.OffHand.Background:SetPoint("CENTER",self.OffHand,"CENTER",0,0)
+	self.OffHand.Background:SetPoint("CENTER", self.OffHand,"CENTER",0,0)
 	self.OffHand.Background:SetWidth(36)
 	self.OffHand.Background:SetHeight(36)
 	self.OffHand.Background:SetTexture("Interface\\Buttons\\CheckButtonHilight")
 	self.OffHand.Background:SetVertexColor(1, 1, 1, 0)
 	self.OffHand.Background:SetBlendMode("ADD")
-	
+
+	-- Count text
 	self.OffHand.Font = self.OffHand:CreateFontString(nil, "OVERLAY")
-    self.OffHand.Font:SetPoint("BOTTOMRIGHT", -3, 3)
-    self.OffHand.Font:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
+	self.OffHand.Font:SetPoint("BOTTOMRIGHT", -3, 3)
+	self.OffHand.Font:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
 	self.OffHand.Font:SetTextColor(0.8,0.8,0.8)
-    --self.OffHand.Font:SetText("999")
-	
+
+	------------------------------------------------
+	-- Final Show/Hide
+	------------------------------------------------
 	self:SetScript("OnShow",function() EZPcfg.isVisible = 1 end)
 	self:SetScript("OnHide",function() EZPcfg.isVisible = nil end)
-	
 	if not EZPcfg.isVisible then EZP.ConfigFrame:Hide() end
 end
 
@@ -649,58 +687,69 @@ function EZP:RomanNumeral(num)
     return roman[num] or ""
 end
 
--- Updated function to search the entire bag for the selected item
+--------------------------------------------------------------------------
+-- GET INVENTORY ID - uses selected "value" instead of the old "ID"
+--------------------------------------------------------------------------
 function EZP:GetInventoryID(hand)
     if not hand then return nil end
 
-    -- Get the dropdown selection ID (1 = None, 2 = Instant Poison, ..., 14 = Brilliant Mana Oil)
-    local H = 0
+    local index
     if hand == "MH" then
-        H = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.MainHand.BorderDropdown)
+        index = UIDropDownMenu_GetSelectedValue(EZP.ConfigFrame.MainHand.BorderDropdown)
     elseif hand == "OH" then
-        H = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.OffHand.BorderDropdown)
+        index = UIDropDownMenu_GetSelectedValue(EZP.ConfigFrame.OffHand.BorderDropdown)
+    end
+    
+    -- If "None" was chosen or nothing is set:
+    if not index or index == 0 then
+        return nil
     end
 
-    -- Only proceed if a valid poison/oil/stone is selected (H between 2 and 13)
-    if H < 2 or H > 13 then return nil end
+    -- Grab the actual name & itemIDs from your tables
+    local poisonName = EZP.Work.Poison[index]
+    local poisonIDs  = EZP.Work.PoisonID[index]
 
-    local poisonIndex = H - 1 -- Adjust for 0-based index in EZP.Work.Poison
-    local poisonName = EZP.Work.Poison[poisonIndex] -- Base name (e.g., "Instant Poison")
-    local poisonIDs = EZP.Work.PoisonID[poisonIndex] -- Item ID(s) for this poison
+    if not poisonName or not poisonIDs then
+        return nil
+    end
 
+    -- If multiple ranks:
     if type(poisonIDs) == "table" then
-        -- Ranked poison: search from highest rank to lowest
+        -- (same logic as your code: check highest rank first, etc.)
         for rank = table.getn(poisonIDs), 1, -1 do
-            local rankStr = (rank == 1) and "" or " "..EZP:RomanNumeral(rank) -- e.g., " VI" or ""
-            local fullName = poisonName .. rankStr -- e.g., "Instant Poison VI"
+            local rankStr = (rank == 1) and "" or " "..EZP:RomanNumeral(rank)
+            local fullName = poisonName .. rankStr
+            -- search all bags for the item with this name
             for bag = 0, 4 do
                 local numSlots = GetContainerNumSlots(bag)
                 for slot = 1, numSlots do
-                    if GetContainerItemInfo(bag, slot) then
-                        local itemName = gsub(GetContainerItemLink(bag, slot), "^.*%[(.*)%].*$", "%1")
+                    local link = GetContainerItemLink(bag, slot)
+                    if link then
+                        local itemName = gsub(link, "^.*%[(.*)%].*$", "%1")
                         if itemName == fullName then
-                            return {bag, slot, rankStr, poisonIDs[rank], poisonIndex}
+                            return {bag, slot, rankStr, poisonIDs[rank], index}
                         end
                     end
                 end
             end
         end
     else
-        -- Non-ranked poison/oil/stone: search for exact name
+        -- single item
         for bag = 0, 4 do
             local numSlots = GetContainerNumSlots(bag)
             for slot = 1, numSlots do
-                if GetContainerItemInfo(bag, slot) then
-                    local itemName = gsub(GetContainerItemLink(bag, slot), "^.*%[(.*)%].*$", "%1")
+                local link = GetContainerItemLink(bag, slot)
+                if link then
+                    local itemName = gsub(link, "^.*%[(.*)%].*$", "%1")
                     if itemName == poisonName then
-                        return {bag, slot, "", poisonIDs, poisonIndex}
+                        return {bag, slot, "", poisonIDs, index}
                     end
                 end
             end
         end
     end
 
-    return nil -- Item not found
+    return nil
 end
 
 function EZP:ApplyPoisen(hand)
@@ -736,21 +785,19 @@ function EZP:AutoApplyPoison()
 	end
 end
 
+--------------------------------------------------------------------------
+-- SAVE PROFILES - store the selected "value" (index) rather than selected ID
+--------------------------------------------------------------------------
 function EZP:SaveProfiles()
-	local MH = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.MainHand.BorderDropdown)
-	local OH = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.OffHand.BorderDropdown)
-	
-	if MH and MH <= 11 and MH >= 2 then
-		EZPcfg.Profile[EZPcfg.CurrentProfile].MainHand = MH-1
-	else
-		EZPcfg.Profile[EZPcfg.CurrentProfile].MainHand = 0
-	end
-	
-	if OH and OH <= 11 and OH >= 2 then
-		EZPcfg.Profile[EZPcfg.CurrentProfile].OffHand = OH-1
-	else
-		EZPcfg.Profile[EZPcfg.CurrentProfile].OffHand = 0
-	end
+    local MH = UIDropDownMenu_GetSelectedValue(EZP.ConfigFrame.MainHand.BorderDropdown)
+    local OH = UIDropDownMenu_GetSelectedValue(EZP.ConfigFrame.OffHand.BorderDropdown)
+
+    -- We’ll just store 0 if "None" was chosen, or else the actual index
+    if not MH then MH = 0 end
+    if not OH then OH = 0 end
+
+    EZPcfg.Profile[EZPcfg.CurrentProfile].MainHand = MH
+    EZPcfg.Profile[EZPcfg.CurrentProfile].OffHand  = OH
 end
 
 function EZP:SetProfile(profileNum)
@@ -766,23 +813,27 @@ function EZP:SetProfile(profileNum)
 	EZP:UpdateSelection()
 end
 
+--------------------------------------------------------------------------
+-- UPDATE SELECTION - set the button icons based on the "value"
+--------------------------------------------------------------------------
 function EZP:UpdateSelection()
-	local MH = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.MainHand.BorderDropdown)
-	local OH = UIDropDownMenu_GetSelectedID(EZP.ConfigFrame.OffHand.BorderDropdown)
-	
-	if MH and MH <= 11 and MH >= 2 then
-		EZP.ConfigFrame.MainHand:SetNormalTexture(EZP.Work.PoisonIcon[MH-1])
-	else
-		EZP.ConfigFrame.MainHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")	
-	end
-	
-	if OH and OH <= 11 and OH >= 2 then
-		EZP.ConfigFrame.OffHand:SetNormalTexture(EZP.Work.PoisonIcon[OH-1])	
-	else
-		EZP.ConfigFrame.OffHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
-	end
-	
-	EZP:UpdateTexture()
+    local MH = UIDropDownMenu_GetSelectedValue(EZP.ConfigFrame.MainHand.BorderDropdown)
+    local OH = UIDropDownMenu_GetSelectedValue(EZP.ConfigFrame.OffHand.BorderDropdown)
+
+    if MH and MH > 0 then
+        EZP.ConfigFrame.MainHand:SetNormalTexture(EZP.Work.PoisonIcon[MH])
+    else
+        EZP.ConfigFrame.MainHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+    end
+
+    if OH and OH > 0 then
+        EZP.ConfigFrame.OffHand:SetNormalTexture(EZP.Work.PoisonIcon[OH])
+    else
+        EZP.ConfigFrame.OffHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+    end
+
+    -- Make sure to refresh your count displays (faded or not) too
+    EZP:UpdateTexture()
 end
 
 --additonal feature/ hooking temp-enchant OnUpdate function
@@ -899,3 +950,30 @@ BINDING_HEADER_HEAD = "EzPoison"
 SlashCmdList['EZPOISON'] = EzPoisonPromt
 SLASH_EZPOISON1 = '/ezpoison'
 SLASH_EZPOISON2 = '/EzPoison'
+
+----------------------------------------------------------------------------
+-- Example: Hide items 11..13 (spellcaster oils) from Rogues and Warriors
+----------------------------------------------------------------------------
+function EZP:GetValidPoisonIndices()
+    local _, class = UnitClass("player")
+
+    if class == "ROGUE" then
+        -- Rogues see poisons 1..8, plus the two Sharpening Stones (9..10),
+        -- and Frost Oil (14). Exclude 11..13 (spellcaster oils).
+        return {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14}
+
+    elseif class == "WARRIOR" then
+        -- Warriors typically cannot use Rogue poisons (1..8) anyway,
+        -- so maybe just show Sharpening Stones + Frost Oil:
+        -- 9: Elemental Sharpening Stone
+        -- 10: Consecrated Sharpening Stone
+        -- 14: Frost Oil
+        return {9, 10, 14}
+
+    else
+        -- All other classes see only “universal” items 9..14,
+        -- including the caster oils 11..13.
+        return {9, 10, 11, 12, 13, 14}
+    end
+end
+
