@@ -800,18 +800,33 @@ function EZP:SaveProfiles()
     EZPcfg.Profile[EZPcfg.CurrentProfile].OffHand  = OH
 end
 
+--------------------------------------------------------------------------
+-- SETPROFILE - Loads the saved MH/OH selection for the chosen profile
+--------------------------------------------------------------------------
 function EZP:SetProfile(profileNum)
-	if profileNum then EZPcfg.CurrentProfile = profileNum end
-	
-	for i=1,7 do EZP.ConfigFrame.ProfileButton[i]:SetNormalTexture("Interface\\AddOns\\EzPoison\\Media\\buttonD") end
-	EZP.ConfigFrame.ProfileButton[EZPcfg.CurrentProfile]:SetNormalTexture("Interface\\AddOns\\EzPoison\\Media\\buttonDselected")
-	
-	UIDropDownMenu_SetSelectedID(getglobal("EZPMainHandDD"), EZPcfg.Profile[EZPcfg.CurrentProfile].MainHand+1)
-	UIDropDownMenu_SetSelectedID(getglobal("EZPOffHandDD"), EZPcfg.Profile[EZPcfg.CurrentProfile].OffHand+1)
-	--DEFAULT_CHAT_FRAME:AddMessage("EzPoison: ".."|cFFFFFFFF".."Profile: ".."|cFFCC9900"..EZPcfg.Profile[EZPcfg.CurrentProfile].Name.."|r".."|cFFFFFFFF".." set.".."|r",0.4,0.8,0.4)
-	
-	EZP:UpdateSelection()
+    if profileNum then
+        EZPcfg.CurrentProfile = profileNum
+    end
+
+    -- Highlight the chosen profile’s button in the UI
+    for i = 1, 7 do
+        EZP.ConfigFrame.ProfileButton[i]:SetNormalTexture("Interface\\AddOns\\EzPoison\\Media\\buttonD")
+    end
+    EZP.ConfigFrame.ProfileButton[EZPcfg.CurrentProfile]
+        :SetNormalTexture("Interface\\AddOns\\EzPoison\\Media\\buttonDselected")
+
+    -- Retrieve the previously saved “value” (the index in EZP.Work.Poison)
+    local MHValue = EZPcfg.Profile[EZPcfg.CurrentProfile].MainHand or 0
+    local OHValue = EZPcfg.Profile[EZPcfg.CurrentProfile].OffHand  or 0
+
+    -- Now set the dropdown selection by *value* (not by ID+1)
+    UIDropDownMenu_SetSelectedValue(getglobal("EZPMainHandDD"), MHValue)
+    UIDropDownMenu_SetSelectedValue(getglobal("EZPOffHandDD"),  OHValue)
+
+    -- Force the UI to refresh and show correct icons
+    EZP:UpdateSelection()
 end
+
 
 --------------------------------------------------------------------------
 -- UPDATE SELECTION - set the button icons based on the "value"
