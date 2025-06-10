@@ -21,29 +21,35 @@ end
 
 
 -- pre-allocate work variables
-EZP.Work = 	{
-	slotInfo = {},
-	ToolTipBuff = "",
-	ID = {},
-	Time = 0,
-	iSCasting = nil,
-	
-	Poison = {
-		[1] = "Instant Poison",
-		[2] = "Deadly Poison",
-		[3] = "Crippling Poison",
-		[4] = "Crippling Poison II",
-		[5] = "Mind-numbing Poison",
-		[6] = "Wound Poison",
-		[7] = "Corrosive Poison",
-		[8] = "Agitating Poison",
-		[9] = "Elemental Sharpening Stone",
-		[10] = "Consecrated Sharpening Stone",
-		[11] = "Blessed Wizard Oil",
-		[12] = "Brilliant Wizard Oil",
-		[13] = "Brilliant Mana Oil",
-		[14] = "Frost Oil",
-	},
+EZP.Work = {
+    slotInfo = {},
+    ToolTipBuff = "",
+    ID = {},
+    Time = 0,
+    iSCasting = nil,
+    
+    -- NEW: Timer tracking variables
+    MainHandTimer = 0,
+    OffHandTimer = 0,
+    MainHandExpiration = 0,
+    OffHandExpiration = 0,
+    
+    Poison = {
+        [1] = "Instant Poison",
+        [2] = "Deadly Poison",
+        [3] = "Crippling Poison",
+        [4] = "Crippling Poison II",
+        [5] = "Mind-numbing Poison",
+        [6] = "Wound Poison",
+        [7] = "Corrosive Poison",
+        [8] = "Agitating Poison",
+        [9] = "Elemental Sharpening Stone",
+        [10] = "Consecrated Sharpening Stone",
+        [11] = "Blessed Wizard Oil",
+        [12] = "Brilliant Wizard Oil",
+        [13] = "Brilliant Mana Oil",
+        [14] = "Frost Oil",
+    },
 	PoisonID = {
 		[1] = {6947,6949,6950,8926,8927,8928},
 		[2] = {2892,2893,8984,8985,20844},
@@ -81,298 +87,385 @@ EZP.Work = 	{
 -- local functions
 EZP.GetWeaponEnchantInfo = GetWeaponEnchantInfo
 
-function EZP:OnEvent()
-	if event == "BAG_UPDATE" then
-		if arg1 == 0 or arg1 == 1 or arg1 == 2 or arg1 == 3 or arg1 == 4 then
-			EZP:UpdatePoisonCount()
-		end
-		
-	elseif event == "ADDON_LOADED" and arg1 == "EzPoison" then
-		if not EZPcfg then
-			EZPcfg = {
-				Profile ={
-					[1] = {MainHand = 0, OffHand = 0, Name = "Profile 1"},
-					[2] = {MainHand = 0, OffHand = 0, Name = "Profile 2"},
-					[3] = {MainHand = 0, OffHand = 0, Name = "Profile 3"},
-					[4] = {MainHand = 0, OffHand = 0, Name = "Profile 4"},
-					[5] = {MainHand = 0, OffHand = 0, Name = "Profile 5"},
-					[6] = {MainHand = 0, OffHand = 0, Name = "Profile 6"},
-					[7] = {MainHand = 0, OffHand = 0, Name = "Profile 7"},
-				},
-				CurrentProfile = 1,
-				PosX = 200,
-				PosY = -200,
-				Scale = 1,
-			}
-		end
+-- NEW: Timer update function
+function EZP:UpdateTimers(elapsed)
+    -- Get weapon enchant info
+    local hasMainHandEnchant, mainHandExpiration, mainHandCharges, hasOffHandEnchant, offHandExpiration, offHandCharges = EZP.GetWeaponEnchantInfo()
+    
+    -- Update MainHand timer and overlay
+    if hasMainHandEnchant and mainHandExpiration then
+        local timeLeft = mainHandExpiration / 1000 -- Convert to seconds
+        EZP.Work.MainHandTimer = timeLeft
+        
+        -- Format time display (mm:ss)
+        local minutes = math.floor(timeLeft / 60)
+        local seconds = math.floor(math.mod(timeLeft, 60))
+        EZP.ConfigFrame.MainHand.TimerFont:SetText(string.format("%d:%02d", minutes, seconds))
+        
+        -- Set overlay color based on time remaining
+        if timeLeft > 600 then -- > 10 minutes
+            EZP.ConfigFrame.MainHand.StatusOverlay:SetTexture(0, 1, 0, 0.3) -- Green
+            EZP.ConfigFrame.MainHand.StatusOverlay:Show()
+        elseif timeLeft > 300 then -- > 5 minutes
+            EZP.ConfigFrame.MainHand.StatusOverlay:SetTexture(1, 1, 0, 0.3) -- Yellow
+            EZP.ConfigFrame.MainHand.StatusOverlay:Show()
+        else -- < 5 minutes
+            EZP.ConfigFrame.MainHand.StatusOverlay:SetTexture(1, 0, 0, 0.3) -- Red
+            EZP.ConfigFrame.MainHand.StatusOverlay:Show()
+        end
+    else
+        EZP.Work.MainHandTimer = 0
+        EZP.ConfigFrame.MainHand.TimerFont:SetText("")
+        EZP.ConfigFrame.MainHand.StatusOverlay:Hide()
+    end
+    
+    -- Update OffHand timer and overlay
+    if hasOffHandEnchant and offHandExpiration then
+        local timeLeft = offHandExpiration / 1000 -- Convert to seconds
+        EZP.Work.OffHandTimer = timeLeft
+        
+        -- Format time display (mm:ss)
+        local minutes = math.floor(timeLeft / 60)
+        local seconds = math.floor(math.mod(timeLeft, 60))
+        EZP.ConfigFrame.OffHand.TimerFont:SetText(string.format("%d:%02d", minutes, seconds))
+        
+        -- Set overlay color based on time remaining
+        if timeLeft > 600 then -- > 10 minutes
+            EZP.ConfigFrame.OffHand.StatusOverlay:SetTexture(0, 1, 0, 0.3) -- Green
+            EZP.ConfigFrame.OffHand.StatusOverlay:Show()
+        elseif timeLeft > 300 then -- > 5 minutes
+            EZP.ConfigFrame.OffHand.StatusOverlay:SetTexture(1, 1, 0, 0.3) -- Yellow
+            EZP.ConfigFrame.OffHand.StatusOverlay:Show()
+        else -- < 5 minutes
+            EZP.ConfigFrame.OffHand.StatusOverlay:SetTexture(1, 0, 0, 0.3) -- Red
+            EZP.ConfigFrame.OffHand.StatusOverlay:Show()
+        end
+    else
+        EZP.Work.OffHandTimer = 0
+        EZP.ConfigFrame.OffHand.TimerFont:SetText("")
+        EZP.ConfigFrame.OffHand.StatusOverlay:Hide()
+    end
+end
 
-		EZP.ConfigFrame:ConfigureUI()
-		EZP:SetProfile()
-		EZP:ConfigFubar()
-		EZP.ConfigFrame:SetScript("OnUpdate",EZP.AddonStart)
-	
-	elseif event == "SPELLCAST_START" then
-		EZP.Work.iSCasting = 1
-	
-	elseif event == "SPELLCAST_STOP" or event ==  "SPELLCAST_INTERRUPTED" or event == "SPELLCAST_FAILED" then
-		EZP:UnregisterEvent("SPELLCAST_STOP")
-		EZP:UnregisterEvent("SPELLCAST_START")
-		EZP:UnregisterEvent("SPELLCAST_INTERRUPTED")
-		EZP:UnregisterEvent("SPELLCAST_FAILED")
-		EZP.Work.iSCasting = nil
-		EZP:UpdateTexture()
-		
-	elseif event == "UNIT_INVENTORY_CHANGED" then
-		EZP:UpdateTexture()
-	end
+function EZP:OnEvent()
+    if event == "BAG_UPDATE" then
+        if arg1 == 0 or arg1 == 1 or arg1 == 2 or arg1 == 3 or arg1 == 4 then
+            EZP:UpdatePoisonCount()
+        end
+        
+    elseif event == "ADDON_LOADED" and arg1 == "EzPoison" then
+        if not EZPcfg then
+            EZPcfg = {
+                Profile ={
+                    [1] = {MainHand = 0, OffHand = 0, Name = "Profile 1"},
+                    [2] = {MainHand = 0, OffHand = 0, Name = "Profile 2"},
+                    [3] = {MainHand = 0, OffHand = 0, Name = "Profile 3"},
+                    [4] = {MainHand = 0, OffHand = 0, Name = "Profile 4"},
+                    [5] = {MainHand = 0, OffHand = 0, Name = "Profile 5"},
+                    [6] = {MainHand = 0, OffHand = 0, Name = "Profile 6"},
+                    [7] = {MainHand = 0, OffHand = 0, Name = "Profile 7"},
+                },
+                CurrentProfile = 1,
+                PosX = 200,
+                PosY = -200,
+                Scale = 1,
+            }
+        end
+
+        EZP.ConfigFrame:ConfigureUI()
+        EZP:SetProfile()
+        EZP:ConfigFubar()
+        EZP.ConfigFrame:SetScript("OnUpdate",EZP.AddonStart)
+    
+    elseif event == "SPELLCAST_START" then
+        EZP.Work.iSCasting = 1
+    
+    elseif event == "SPELLCAST_STOP" or event ==  "SPELLCAST_INTERRUPTED" or event == "SPELLCAST_FAILED" then
+        EZP:UnregisterEvent("SPELLCAST_STOP")
+        EZP:UnregisterEvent("SPELLCAST_START")
+        EZP:UnregisterEvent("SPELLCAST_INTERRUPTED")
+        EZP:UnregisterEvent("SPELLCAST_FAILED")
+        EZP.Work.iSCasting = nil
+        EZP:UpdateTexture()
+        
+    elseif event == "UNIT_INVENTORY_CHANGED" then
+        EZP:UpdateTexture()
+    end
 end
 
 EZP:SetScript("OnEvent", EZP.OnEvent)
 
+-- MODIFIED: Updated ConfigureUI function to add timer displays and overlays
 function EZP.ConfigFrame:ConfigureUI()
-	-- moving frames function
-	function EZP.ConfigFrame:StartMove()
-		this:StartMoving()
-	end
-	
-	function EZP.ConfigFrame:StopMove()
-		this:StopMovingOrSizing()
-		_, _, _, EZPcfg.PosX, EZPcfg.PosY = EZP.ConfigFrame:GetPoint()
-	end
-	
-	self:SetScale(EZPcfg.Scale)
-	local backdrop = {bgFile = "Interface\\TutorialFrame\\TutorialFrameBackground", edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", tile=true,tileSize = 16, edgeSize = 16, insets = { left = 3, right = 5, top = 3, bottom = 5 }}  -- path to the background texture
-	self:SetBackdrop(backdrop)
-	self:SetBackdropColor(0,0,0,0.8)
-	self:SetWidth(82)
-	self:SetHeight(48)
-	self:SetPoint("TOPLEFT",EZPcfg.PosX,EZPcfg.PosY)
-	self:SetMovable(1)
-	self:EnableMouse(1)
-	self:RegisterForDrag("LeftButton")
-	self:SetScript("OnDragStart", EZP.ConfigFrame.StartMove)
-	self:SetScript("OnDragStop", EZP.ConfigFrame.StopMove)
-	
-	self.ProfileButton = CreateFrame("Button",nil,self)
-	self.ProfileButton:SetWidth(82)
-	self.ProfileButton:SetHeight(12)
-	self.ProfileButton:SetPoint("BOTTOM",self,"TOP",0,0)
-	self.ProfileButton:SetScript("OnEnter", function() for j=1,7 do self.ProfileButton[j]:Show() end end)
-	self.ProfileButton:SetScript("OnLeave", function() for j=1,7 do self.ProfileButton[j]:Hide() end end)
-	
-	for i=1,7 do
-		if i == 1 then self.ProfileButton[i] = CreateFrame("Button", nil, self.ProfileButton); self.ProfileButton[i]:SetPoint("BOTTOM",self,"TOPLEFT", 11 , 0)
-		else self.ProfileButton[i] = CreateFrame("Button", nil, self.ProfileButton[i-1]); self.ProfileButton[i]:SetPoint("LEFT",self.ProfileButton[i-1],"RIGHT", 3, 0) end
-		self.ProfileButton[i]:SetID(i)
-		self.ProfileButton[i]:SetWidth(7)
-		self.ProfileButton[i]:SetHeight(7)
-		self.ProfileButton[i]:SetScript("OnClick", function () 
-			EZP:SetProfile(this:GetID())
-		end)
-		self.ProfileButton[i]:SetNormalTexture("Interface\\AddOns\\EzPoison\\Media\\buttonD")
-		self.ProfileButton[i]:SetScript("OnEnter", function() for j=1,7 do self.ProfileButton[j]:Show() end end)
-		self.ProfileButton[i]:SetScript("OnLeave", function() for j=1,7 do self.ProfileButton[j]:Hide() end end)
-		self.ProfileButton[i]:Hide()
-	end
+    -- moving frames function
+    function EZP.ConfigFrame:StartMove()
+        this:StartMoving()
+    end
+    
+    function EZP.ConfigFrame:StopMove()
+        this:StopMovingOrSizing()
+        _, _, _, EZPcfg.PosX, EZPcfg.PosY = EZP.ConfigFrame:GetPoint()
+    end
+    
+    self:SetScale(EZPcfg.Scale)
+    local backdrop = {bgFile = "Interface\\TutorialFrame\\TutorialFrameBackground", edgeFile="Interface\\Tooltips\\UI-Tooltip-Border", tile=true,tileSize = 16, edgeSize = 16, insets = { left = 3, right = 5, top = 3, bottom = 5 }}
+    self:SetBackdrop(backdrop)
+    self:SetBackdropColor(0,0,0,0.8)
+    self:SetWidth(82)
+    self:SetHeight(48)
+    self:SetPoint("TOPLEFT",EZPcfg.PosX,EZPcfg.PosY)
+    self:SetMovable(1)
+    self:EnableMouse(1)
+    self:RegisterForDrag("LeftButton")
+    self:SetScript("OnDragStart", EZP.ConfigFrame.StartMove)
+    self:SetScript("OnDragStop", EZP.ConfigFrame.StopMove)
+    
+    self.ProfileButton = CreateFrame("Button",nil,self)
+    self.ProfileButton:SetWidth(82)
+    self.ProfileButton:SetHeight(12)
+    self.ProfileButton:SetPoint("BOTTOM",self,"TOP",0,0)
+    self.ProfileButton:SetScript("OnEnter", function() for j=1,7 do self.ProfileButton[j]:Show() end end)
+    self.ProfileButton:SetScript("OnLeave", function() for j=1,7 do self.ProfileButton[j]:Hide() end end)
+    
+    for i=1,7 do
+        if i == 1 then self.ProfileButton[i] = CreateFrame("Button", nil, self.ProfileButton); self.ProfileButton[i]:SetPoint("BOTTOM",self,"TOPLEFT", 11 , 0)
+        else self.ProfileButton[i] = CreateFrame("Button", nil, self.ProfileButton[i-1]); self.ProfileButton[i]:SetPoint("LEFT",self.ProfileButton[i-1],"RIGHT", 3, 0) end
+        self.ProfileButton[i]:SetID(i)
+        self.ProfileButton[i]:SetWidth(7)
+        self.ProfileButton[i]:SetHeight(7)
+        self.ProfileButton[i]:SetScript("OnClick", function () 
+            EZP:SetProfile(this:GetID())
+        end)
+        self.ProfileButton[i]:SetNormalTexture("Interface\\AddOns\\EzPoison\\Media\\buttonD")
+        self.ProfileButton[i]:SetScript("OnEnter", function() for j=1,7 do self.ProfileButton[j]:Show() end end)
+        self.ProfileButton[i]:SetScript("OnLeave", function() for j=1,7 do self.ProfileButton[j]:Hide() end end)
+        self.ProfileButton[i]:Hide()
+    end
 	
 	----------------------------------------------------------------------------
 	-- Updated EzPoison GUI / Dropdown Setup
 	-- Paste this into your "EZP.ConfigFrame:ConfigureUI()" where appropriate
 	----------------------------------------------------------------------------
 
-	-- First, replace your current MainHand/OffHand dropdown-building functions:
-	local function MainHandDropDownFun()
-		local info = {}
+    -- Dropdown functions (keeping your existing dropdown code)
+    local function MainHandDropDownFun()
+        local info = {}
+        info.text = "MainHand"
+        info.isTitle = 1
+        UIDropDownMenu_AddButton(info)
+        
+        info = {}
+        for _, i in ipairs(EZP:GetValidPoisonIndices()) do
+            info.text   = EZP.Work.Poison[i]
+            info.icon   = EZP.Work.PoisonIcon[i]
+            info.value  = i
+            info.checked = false
+            info.textR = 0.4; info.textG = 0.8; info.textB = 0.4
+            info.isTitle = nil
+            info.func = function()
+                UIDropDownMenu_SetSelectedValue(getglobal("EZPMainHandDD"), this.value)
+                EZP:UpdateSelection()
+                EZP:SaveProfiles()
+            end
+            UIDropDownMenu_AddButton(info)
+        end
+        
+        info = {}
+        info.text     = "None"
+        info.checked  = false
+        info.value    = 0
+        info.textR    = 1; info.textG = 1; info.textB = 1
+        info.isTitle  = nil
+        info.func = function()
+            UIDropDownMenu_SetSelectedValue(getglobal("EZPMainHandDD"), 0)
+            EZP:UpdateSelection()
+            EZP:SaveProfiles()
+        end
+        UIDropDownMenu_AddButton(info)
+    end
 
-		-- Title row
-		info.text = "MainHand"
-		info.isTitle = 1
-		UIDropDownMenu_AddButton(info)
-
-		-- Actual list items
-		info = {}
-		for _, i in ipairs(EZP:GetValidPoisonIndices()) do
-			info.text   = EZP.Work.Poison[i]         -- e.g. "Elemental Sharpening Stone"
-			info.icon   = EZP.Work.PoisonIcon[i]     -- icon path
-			info.value  = i                          -- store the REAL index from your table
-			info.checked = false
-			info.textR = 0.4; info.textG = 0.8; info.textB = 0.4
-			info.isTitle = nil
-			info.func = function()
-				-- Instead of SetSelectedID, use SetSelectedValue
-				UIDropDownMenu_SetSelectedValue(getglobal("EZPMainHandDD"), this.value)
-				EZP:UpdateSelection()
-				EZP:SaveProfiles()
-			end
-			UIDropDownMenu_AddButton(info)
-		end
-
-		-- "None" entry, treat as 0
-		info = {}
-		info.text     = "None"
-		info.checked  = false
-		info.value    = 0  -- we'll interpret 0 as "no selection"
-		info.textR    = 1; info.textG = 1; info.textB = 1
-		info.isTitle  = nil
-		info.func = function()
-			UIDropDownMenu_SetSelectedValue(getglobal("EZPMainHandDD"), 0)
-			EZP:UpdateSelection()
-			EZP:SaveProfiles()
-		end
-		UIDropDownMenu_AddButton(info)
-	end
-
-	local function OffHandDropDownFun()
-		local info = {}
-
-		-- Title row
-		info.text = "OffHand"
-		info.isTitle = 1
-		UIDropDownMenu_AddButton(info)
-
-		-- Actual list items
-		info = {}
-		for _, i in ipairs(EZP:GetValidPoisonIndices()) do
-			info.text   = EZP.Work.Poison[i]
-			info.icon   = EZP.Work.PoisonIcon[i]
-			info.value  = i
-			info.checked = false
-			info.textR = 0.4; info.textG = 0.8; info.textB = 0.4
-			info.isTitle = nil
-			info.func = function()
-				UIDropDownMenu_SetSelectedValue(getglobal("EZPOffHandDD"), this.value)
-				EZP:UpdateSelection()
-				EZP:SaveProfiles()
-			end
-			UIDropDownMenu_AddButton(info)
-		end
-
-		-- "None" entry
-		info = {}
-		info.text     = "None"
-		info.checked  = false
-		info.value    = 0
-		info.textR    = 1; info.textG = 1; info.textB = 1
-		info.isTitle  = nil
-		info.func = function()
-			UIDropDownMenu_SetSelectedValue(getglobal("EZPOffHandDD"), 0)
-			EZP:UpdateSelection()
-			EZP:SaveProfiles()
-		end
-		UIDropDownMenu_AddButton(info)
-	end
+    local function OffHandDropDownFun()
+        local info = {}
+        info.text = "OffHand"
+        info.isTitle = 1
+        UIDropDownMenu_AddButton(info)
+        
+        info = {}
+        for _, i in ipairs(EZP:GetValidPoisonIndices()) do
+            info.text   = EZP.Work.Poison[i]
+            info.icon   = EZP.Work.PoisonIcon[i]
+            info.value  = i
+            info.checked = false
+            info.textR = 0.4; info.textG = 0.8; info.textB = 0.4
+            info.isTitle = nil
+            info.func = function()
+                UIDropDownMenu_SetSelectedValue(getglobal("EZPOffHandDD"), this.value)
+                EZP:UpdateSelection()
+                EZP:SaveProfiles()
+            end
+            UIDropDownMenu_AddButton(info)
+        end
+        
+        info = {}
+        info.text     = "None"
+        info.checked  = false
+        info.value    = 0
+        info.textR    = 1; info.textG = 1; info.textB = 1
+        info.isTitle  = nil
+        info.func = function()
+            UIDropDownMenu_SetSelectedValue(getglobal("EZPOffHandDD"), 0)
+            EZP:UpdateSelection()
+            EZP:SaveProfiles()
+        end
+        UIDropDownMenu_AddButton(info)
+    end
 
 	-- Now, define your main-hand/off-hand frames as before, 
 	-- but ensure we call _SetSelectedValue initialization:
-	self.MainHand = CreateFrame("Button", "EZPMHButton", self)
-	self.MainHand.BorderDropdown = CreateFrame("Frame","EZPMainHandDD", self, "UIDropDownMenuTemplate")
-	UIDropDownMenu_Initialize(getglobal("EZPMainHandDD"), MainHandDropDownFun, "MENU")
+    self.MainHand = CreateFrame("Button", "EZPMHButton", self)
+    self.MainHand.BorderDropdown = CreateFrame("Frame","EZPMainHandDD", self, "UIDropDownMenuTemplate")
+    UIDropDownMenu_Initialize(getglobal("EZPMainHandDD"), MainHandDropDownFun, "MENU")
 
-	self.MainHand:SetWidth(32)
-	self.MainHand:SetHeight(32)
-	self.MainHand:SetPoint("LEFT",7,0)
-	self.MainHand:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	self.MainHand:SetScript("OnClick", function()
-		if arg1 == "LeftButton" then
-			EZP:ApplyPoisen("MH")
-		elseif arg1 == "RightButton" then
-			ToggleDropDownMenu(1, nil, self.MainHand.BorderDropdown, self.OffHand, 0, 0)
-		end
-	end)
-	self.MainHand:SetScript("OnEnter", function()
-		self.MainHand.Background:SetVertexColor(1, 1, 1, 1)
-		local id = EZP:GetInventoryID("MH")
-		if id then
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetHyperlink("item:"..id[4])
-			GameTooltip:Show()
-		end
-	end)
-	self.MainHand:SetScript("OnLeave", function ()
-		self.MainHand.Background:SetVertexColor(1, 1, 1, 0)
-		GameTooltip:Hide()
-	end)
-	self.MainHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+    self.MainHand:SetWidth(32)
+    self.MainHand:SetHeight(32)
+    self.MainHand:SetPoint("LEFT",7,0)
+    self.MainHand:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    self.MainHand:SetScript("OnClick", function()
+        if arg1 == "LeftButton" then
+            EZP:ApplyPoisen("MH")
+        elseif arg1 == "RightButton" then
+            ToggleDropDownMenu(1, nil, self.MainHand.BorderDropdown, self.OffHand, 0, 0)
+        end
+    end)
+    self.MainHand:SetScript("OnEnter", function()
+        self.MainHand.Background:SetVertexColor(1, 1, 1, 1)
+        local id = EZP:GetInventoryID("MH")
+        if id then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetHyperlink("item:"..id[4])
+            GameTooltip:Show()
+        end
+    end)
+    self.MainHand:SetScript("OnLeave", function ()
+        self.MainHand.Background:SetVertexColor(1, 1, 1, 0)
+        GameTooltip:Hide()
+    end)
+    self.MainHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
 
-	-- Glow
-	self.MainHand.Background = self:CreateTexture(self,"BACKGROUND")
-	self.MainHand.Background:SetPoint("CENTER",self.MainHand,"CENTER",0,0)
-	self.MainHand.Background:SetWidth(36)
-	self.MainHand.Background:SetHeight(36)
-	self.MainHand.Background:SetTexture("Interface\\Buttons\\CheckButtonHilight")
-	self.MainHand.Background:SetVertexColor(1, 1, 1, 0)
-	self.MainHand.Background:SetBlendMode("ADD")
+    -- Glow background
+    self.MainHand.Background = self:CreateTexture(self,"BACKGROUND")
+    self.MainHand.Background:SetPoint("CENTER",self.MainHand,"CENTER",0,0)
+    self.MainHand.Background:SetWidth(36)
+    self.MainHand.Background:SetHeight(36)
+    self.MainHand.Background:SetTexture("Interface\\Buttons\\CheckButtonHilight")
+    self.MainHand.Background:SetVertexColor(1, 1, 1, 0)
+    self.MainHand.Background:SetBlendMode("ADD")
 
-	-- Count text
-	self.MainHand.Font = self.MainHand:CreateFontString(nil, "OVERLAY")
-	self.MainHand.Font:SetPoint("BOTTOMRIGHT", -3, 3)
-	self.MainHand.Font:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
-	self.MainHand.Font:SetTextColor(0.8,0.8,0.8)
+    -- NEW: Status overlay for MainHand
+    self.MainHand.StatusOverlay = self.MainHand:CreateTexture(nil, "OVERLAY")
+    self.MainHand.StatusOverlay:SetAllPoints()
+    self.MainHand.StatusOverlay:SetTexture(0, 1, 0, 0.3)
+    self.MainHand.StatusOverlay:Hide()
+
+    -- Count text
+    self.MainHand.Font = self.MainHand:CreateFontString(nil, "OVERLAY")
+    self.MainHand.Font:SetPoint("BOTTOMRIGHT", -3, 3)
+    self.MainHand.Font:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
+    self.MainHand.Font:SetTextColor(0.8,0.8,0.8)
+
+    -- NEW: Timer text for MainHand
+    self.MainHand.TimerFont = self.MainHand:CreateFontString(nil, "OVERLAY")
+    self.MainHand.TimerFont:SetPoint("TOP", 0, -2)
+    self.MainHand.TimerFont:SetFont("Fonts\\ARIALN.TTF", 8, "OUTLINE")
+    self.MainHand.TimerFont:SetTextColor(1, 1, 0) -- Yellow color
+    self.MainHand.TimerFont:SetText("")
 
 	------------------------------------------------
 	-- OffHand
 	------------------------------------------------
-	self.OffHand = CreateFrame("Button", nil, self)
-	self.OffHand.BorderDropdown = CreateFrame("Frame","EZPOffHandDD", self, "UIDropDownMenuTemplate")
-	UIDropDownMenu_Initialize(getglobal("EZPOffHandDD"), OffHandDropDownFun, "MENU")
+    self.MainHand.TimerFont = self.MainHand:CreateFontString(nil, "OVERLAY")
+    self.MainHand.TimerFont:SetPoint("TOP", 0, -2)
+    self.MainHand.TimerFont:SetFont("Fonts\\ARIALN.TTF", 8, "OUTLINE")
+    self.MainHand.TimerFont:SetTextColor(1, 1, 0) -- Yellow color
+    self.MainHand.TimerFont:SetText("")
 
-	self.OffHand:SetWidth(32)
-	self.OffHand:SetHeight(32)
-	self.OffHand:SetPoint("RIGHT",-7,0)
-	self.OffHand:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	self.OffHand:SetScript("OnClick", function ()
-		if arg1 == "LeftButton" then
-			EZP:ApplyPoisen("OH")
-		elseif arg1 == "RightButton" then
-			ToggleDropDownMenu(1, nil, self.OffHand.BorderDropdown, self.OffHand, 0, 0)
-		end
-	end)
-	self.OffHand:SetScript("OnEnter", function()
-		self.OffHand.Background:SetVertexColor(1, 1, 1, 1)
-		local id = EZP:GetInventoryID("OH")
-		if id then
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetHyperlink("item:"..id[4])
-			GameTooltip:Show()
-		end
-	end)
-	self.OffHand:SetScript("OnLeave", function()
-		self.OffHand.Background:SetVertexColor(1, 1, 1, 0)
-		GameTooltip:Hide()
-	end)
-	self.OffHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+    -- OffHand Button
+    self.OffHand = CreateFrame("Button", nil, self)
+    self.OffHand.BorderDropdown = CreateFrame("Frame","EZPOffHandDD", self, "UIDropDownMenuTemplate")
+    UIDropDownMenu_Initialize(getglobal("EZPOffHandDD"), OffHandDropDownFun, "MENU")
 
-	-- Glow
-	self.OffHand.Background = self:CreateTexture(self,"BACKGROUND")
-	self.OffHand.Background:SetPoint("CENTER", self.OffHand,"CENTER",0,0)
-	self.OffHand.Background:SetWidth(36)
-	self.OffHand.Background:SetHeight(36)
-	self.OffHand.Background:SetTexture("Interface\\Buttons\\CheckButtonHilight")
-	self.OffHand.Background:SetVertexColor(1, 1, 1, 0)
-	self.OffHand.Background:SetBlendMode("ADD")
+    self.OffHand:SetWidth(32)
+    self.OffHand:SetHeight(32)
+    self.OffHand:SetPoint("RIGHT",-7,0)
+    self.OffHand:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    self.OffHand:SetScript("OnClick", function ()
+        if arg1 == "LeftButton" then
+            EZP:ApplyPoisen("OH")
+        elseif arg1 == "RightButton" then
+            ToggleDropDownMenu(1, nil, self.OffHand.BorderDropdown, self.OffHand, 0, 0)
+        end
+    end)
+    self.OffHand:SetScript("OnEnter", function()
+        self.OffHand.Background:SetVertexColor(1, 1, 1, 1)
+        local id = EZP:GetInventoryID("OH")
+        if id then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetHyperlink("item:"..id[4])
+            GameTooltip:Show()
+        end
+    end)
+    self.OffHand:SetScript("OnLeave", function()
+        self.OffHand.Background:SetVertexColor(1, 1, 1, 0)
+        GameTooltip:Hide()
+    end)
+    self.OffHand:SetNormalTexture("Interface\\Buttons\\UI-Quickslot-Depress")
 
-	-- Count text
-	self.OffHand.Font = self.OffHand:CreateFontString(nil, "OVERLAY")
-	self.OffHand.Font:SetPoint("BOTTOMRIGHT", -3, 3)
-	self.OffHand.Font:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
-	self.OffHand.Font:SetTextColor(0.8,0.8,0.8)
+    -- Glow background
+    self.OffHand.Background = self:CreateTexture(self,"BACKGROUND")
+    self.OffHand.Background:SetPoint("CENTER", self.OffHand,"CENTER",0,0)
+    self.OffHand.Background:SetWidth(36)
+    self.OffHand.Background:SetHeight(36)
+    self.OffHand.Background:SetTexture("Interface\\Buttons\\CheckButtonHilight")
+    self.OffHand.Background:SetVertexColor(1, 1, 1, 0)
+    self.OffHand.Background:SetBlendMode("ADD")
 
-	------------------------------------------------
-	-- Final Show/Hide
-	------------------------------------------------
-	self:SetScript("OnShow",function() EZPcfg.isVisible = 1 end)
-	self:SetScript("OnHide",function() EZPcfg.isVisible = nil end)
-	if not EZPcfg.isVisible then EZP.ConfigFrame:Hide() end
+    -- NEW: Status overlay for OffHand
+    self.OffHand.StatusOverlay = self.OffHand:CreateTexture(nil, "OVERLAY")
+    self.OffHand.StatusOverlay:SetAllPoints()
+    self.OffHand.StatusOverlay:SetTexture(0, 1, 0, 0.3)
+    self.OffHand.StatusOverlay:Hide()
+
+    -- Count text
+    self.OffHand.Font = self.OffHand:CreateFontString(nil, "OVERLAY")
+    self.OffHand.Font:SetPoint("BOTTOMRIGHT", -3, 3)
+    self.OffHand.Font:SetFont("Fonts\\ARIALN.TTF", 10, "OUTLINE")
+    self.OffHand.Font:SetTextColor(0.8,0.8,0.8)
+
+    -- NEW: Timer text for OffHand
+    self.OffHand.TimerFont = self.OffHand:CreateFontString(nil, "OVERLAY")
+    self.OffHand.TimerFont:SetPoint("TOP", 0, -2)
+    self.OffHand.TimerFont:SetFont("Fonts\\ARIALN.TTF", 8, "OUTLINE")
+    self.OffHand.TimerFont:SetTextColor(1, 1, 0) -- Yellow color
+    self.OffHand.TimerFont:SetText("")
+
+    -- Final Show/Hide setup
+    self:SetScript("OnShow",function() EZPcfg.isVisible = 1 end)
+    self:SetScript("OnHide",function() EZPcfg.isVisible = nil end)
+    if not EZPcfg.isVisible then EZP.ConfigFrame:Hide() end
+    
+    -- NEW: Start the timer update loop
+    self:SetScript("OnUpdate", EZP.UpdateTimers)
 end
 
 -- workarround for the fact that temp. enchants are not loaded at the addon start
 function EZP:AddonStart()
-	EZP.Work.Time = EZP.Work.Time + arg1
-	if EZP.Work.Time >= 2 then
-		EZP.Work.Time = 0
-		EZP.ConfigFrame:SetScript("OnUpdate",nil)
-		EZP:UpdateTexture()
-	end
+    EZP.Work.Time = EZP.Work.Time + arg1
+    if EZP.Work.Time >= 2 then
+        EZP.Work.Time = 0
+        -- Switch from AddonStart to UpdateTimers
+        EZP.ConfigFrame:SetScript("OnUpdate", EZP.UpdateTimers)
+        EZP:UpdateTexture()
+    end
 end
 
 function EZP:ConfigFubar()
